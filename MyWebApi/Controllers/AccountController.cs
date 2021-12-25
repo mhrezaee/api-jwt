@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using MyWebApi.Constants;
 using MyWebApi.Models;
@@ -93,7 +94,17 @@ public class AccountController : ControllerBase
         return Ok(tokenValue);
     }
 
+    [HttpPost("refresh-token")]
+    public async Task<IActionResult> RefreshToken([FromBody] TokenRequestViewModel model)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest("Please, provide all required fields");
+        }
 
+        var result = await VerifyAndGenerateTokenAsync(model);
+        return Ok(result);
+    }
 
 
     private async Task<JwtResponseViewModel> GenerateJwtTokenAsync(ApplicationUser user, RefreshToken? refreshToken)
@@ -157,4 +168,30 @@ public class AccountController : ControllerBase
         return response;
 
     }
+    private async Task<JwtResponseViewModel> VerifyAndGenerateTokenAsync(TokenRequestViewModel model)
+    {
+        var jwtTokenHandler = new JwtSecurityTokenHandler();
+        var storedToken = await _dbContext.RefreshTokens.FirstOrDefaultAsync(x => x.Token == model.RefreshToken);
+        var dbUser = await _userManager.FindByIdAsync(storedToken?.UserId);
+
+        try
+        {
+            var tokenCheckResult = jwtTokenHandler
+                .ValidateToken(model.Token, _tokenValidationParameters, out var validatedToken);
+
+            return await GenerateJwtTokenAsync(dbUser, storedToken);
+        }
+        catch (SecurityTokenExpiredException)
+        {
+            if (storedToken?.DateExpire >= DateTime.UtcNow)
+            {
+                return await GenerateJwtTokenAsync(dbUser, storedToken);
+            }
+            else
+            {
+                return await GenerateJwtTokenAsync(dbUser, null);
+            }
+        }
+    }
+
 }

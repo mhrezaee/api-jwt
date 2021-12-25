@@ -53,25 +53,22 @@ public class AccountController : ControllerBase
         };
         var result = await _userManager.CreateAsync(newUser, model.Password);
 
-        if (result.Succeeded)
+        if (!result.Succeeded) return BadRequest("User could not be created");
+        
+        //Add user role
+        switch (model.Role)
         {
-            //Add user role
-
-            switch (model.Role)
-            {
-                case ApplicationRoles.Admin:
-                    await _userManager.AddToRoleAsync(newUser, ApplicationRoles.Admin);
-                    break;
-                case ApplicationRoles.User:
-                    await _userManager.AddToRoleAsync(newUser, ApplicationRoles.User);
-                    break;
-                default:
-                    break;
-            }
-
-
-            return Ok("User created");
+            case ApplicationRoles.Admin:
+                await _userManager.AddToRoleAsync(newUser, ApplicationRoles.Admin);
+                break;
+            case ApplicationRoles.User:
+                await _userManager.AddToRoleAsync(newUser, ApplicationRoles.User);
+                break;
+            default:
+                break;
         }
-        return BadRequest("User could not be created");
+
+
+        return Ok("User created");
     }
 }

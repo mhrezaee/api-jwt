@@ -25,7 +25,15 @@ var tokenValidationParameters = new TokenValidationParameters()
 };
 builder.Services.AddSingleton(tokenValidationParameters);
 //Add Identity
-builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
+builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
+    {
+        //make password validator easy :D
+        options.Password.RequiredLength = 4;
+        options.Password.RequireLowercase = false;
+        options.Password.RequireUppercase = false;
+        options.Password.RequireNonAlphanumeric = false;
+        options.Password.RequireDigit = false;
+    })
     .AddEntityFrameworkStores<MyDbContext>()
     .AddDefaultTokenProviders();
 
@@ -64,6 +72,6 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.UseRouting();
 app.MapControllers();
-
 app.Run();

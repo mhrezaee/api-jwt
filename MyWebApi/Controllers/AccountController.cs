@@ -8,6 +8,7 @@ using MyWebApi.ViewModels;
 namespace MyWebApi.Controllers;
 
 [ApiController]
+[Route("[controller]")]
 public class AccountController : ControllerBase
 {
     private readonly UserManager<ApplicationUser> _userManager;
@@ -29,8 +30,8 @@ public class AccountController : ControllerBase
         _tokenValidationParameters = tokenValidationParameters;
     }
 
-    [HttpGet(Name = "register")]
-    public async Task<IActionResult> Register(RegisterViewModel model)
+    [HttpPost(Name = "register")]
+    public async Task<IActionResult> Register([FromBody]RegisterViewModel model)
     {
         if (!ModelState.IsValid)
         {

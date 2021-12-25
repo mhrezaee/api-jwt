@@ -9,10 +9,10 @@ namespace MyWebApi.Migrations
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.Sql(@"INSERT INTO AspNetRoles (Id, Name)
+            migrationBuilder.Sql(@"INSERT INTO AspNetRoles (Id, Name,NormalizedName)
 	                                VALUES
-	                                    (NEWID(), 'Admin'),
-	                                    (NEWID(), 'User')
+	                                    (NEWID(), 'Admin', 'ADMIN'),
+	                                    (NEWID(), 'User', 'USER')
                                 ");
         }
 

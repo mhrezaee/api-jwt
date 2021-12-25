@@ -17,17 +17,20 @@ public class AccountController : ControllerBase
     private readonly IConfiguration _configuration;
     private readonly TokenValidationParameters _tokenValidationParameters;
 
+    private readonly ILogger<AccountController> _logger;
+
     public AccountController(UserManager<ApplicationUser> userManager,
         RoleManager<IdentityRole> roleManager,
         MyDbContext dbContext,
         IConfiguration configuration,
-        TokenValidationParameters tokenValidationParameters)
+        TokenValidationParameters tokenValidationParameters, ILogger<AccountController> logger)
     {
         _userManager = userManager;
         _roleManager = roleManager;
         _dbContext = dbContext;
         _configuration = configuration;
         _tokenValidationParameters = tokenValidationParameters;
+        _logger = logger;
     }
 
     [HttpPost(Name = "register")]
@@ -68,7 +71,6 @@ public class AccountController : ControllerBase
             default:
                 break;
         }
-
 
         return Ok("User created");
     }

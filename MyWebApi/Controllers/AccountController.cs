@@ -1,4 +1,7 @@
-﻿using Microsoft.AspNetCore.Identity;
+﻿using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using MyWebApi.Constants;
@@ -33,7 +36,7 @@ public class AccountController : ControllerBase
         _logger = logger;
     }
 
-    [HttpPost(Name = "register")]
+    [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody]RegisterViewModel model)
     {
         if (!ModelState.IsValid)
@@ -73,5 +76,85 @@ public class AccountController : ControllerBase
         }
 
         return Ok("User created");
+    }
+
+    [HttpPost("login")]
+    public async Task<IActionResult> Login([FromBody] LoginViewModel model)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest("Please, provide all required fields");
+        }
+
+        var userExists = await _userManager.FindByEmailAsync(model.Email);
+        if (userExists == null || !await _userManager.CheckPasswordAsync(userExists, model.Password))
+            return Unauthorized();
+        var tokenValue = await GenerateJwtTokenAsync(userExists, null);
+        return Ok(tokenValue);
+    }
+
+
+
+
+    private async Task<JwtResponseViewModel> GenerateJwtTokenAsync(ApplicationUser user, RefreshToken? refreshToken)
+    {
+        var authClaims = new List<Claim>()
+            {
+                new Claim(ClaimTypes.Name, user.UserName),
+                new Claim(ClaimTypes.NameIdentifier, user.Id),
+                new Claim(JwtRegisteredClaimNames.Email, user.Email),
+                new Claim(JwtRegisteredClaimNames.Sub, user.Email),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+            };
+
+        //Add User Role Claims
+        var userRoles = await _userManager.GetRolesAsync(user);
+        authClaims.AddRange(userRoles.Select(userRole => new Claim(ClaimTypes.Role, userRole)));
+
+
+        var authSigningKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(_configuration["JWT:Secret"]));
+
+        var token = new JwtSecurityToken(
+            issuer: _configuration["JWT:Issuer"],
+            audience: _configuration["JWT:Audience"],
+            expires: DateTime.UtcNow.AddMinutes(5),
+            claims: authClaims,
+            signingCredentials: new SigningCredentials(authSigningKey, SecurityAlgorithms.HmacSha256));
+
+        var jwtToken = new JwtSecurityTokenHandler().WriteToken(token);
+
+        if (refreshToken != null)
+        {
+            var refreshTokenResponse = new JwtResponseViewModel()
+            {
+                Token = jwtToken,
+                RefreshToken = refreshToken.Token,
+                ExpiresAt = token.ValidTo
+            };
+            return refreshTokenResponse;
+        }
+
+        var newRefreshToken = new RefreshToken()
+        {
+            JwtId = token.Id,
+            IsRevoked = false,
+            UserId = user.Id,
+            DateAdded = DateTime.UtcNow,
+            DateExpire = DateTime.UtcNow.AddMonths(6),
+            Token = Guid.NewGuid() + "-" + Guid.NewGuid()
+        };
+        await _dbContext.RefreshTokens.AddAsync(newRefreshToken);
+        await _dbContext.SaveChangesAsync();
+
+
+        var response = new JwtResponseViewModel()
+        {
+            Token = jwtToken,
+            RefreshToken = newRefreshToken.Token,
+            ExpiresAt = token.ValidTo
+        };
+
+        return response;
+
     }
 }
